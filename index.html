@@ -567,6 +567,21 @@
             transactions: '++id, invoiceNo, timestamp, customerName, total, type'
         });
 
+        // Global Single-Instance Web Audio Context (Fast & Offline Ready)
+        window.audioCtx = null;
+        function getAudioContext() {
+            if (!window.audioCtx) {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (AudioCtx) {
+                    window.audioCtx = new AudioCtx();
+                }
+            }
+            if (window.audioCtx && window.audioCtx.state === 'suspended') {
+                window.audioCtx.resume();
+            }
+            return window.audioCtx;
+        }
+
         function posApp() {
             return {
                 activeTab: 'kasir',
@@ -593,48 +608,52 @@
                 scanBuffer: '',
                 scanTimeout: null,
 
-                // Web Audio API Context for Notification Beeps
+                // High-Speed Instant Audio Notification (100% Code-based & Offline)
                 playBeep(success = true) {
                     try {
-                        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-                        if (!AudioCtx) return;
-                        const ctx = new AudioCtx();
+                        const ctx = getAudioContext();
+                        if (!ctx) return;
+
+                        const now = ctx.currentTime;
 
                         if (success) {
-                            // Success Sound: High double beep
+                            // High-speed double-tone Beep (Success)
                             const osc1 = ctx.createOscillator();
                             const gain1 = ctx.createGain();
                             osc1.type = 'sine';
-                            osc1.frequency.setValueAtTime(1400, ctx.currentTime);
-                            gain1.gain.setValueAtTime(0.15, ctx.currentTime);
+                            osc1.frequency.setValueAtTime(1600, now);
+                            gain1.gain.setValueAtTime(0.2, now);
+                            gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
                             osc1.connect(gain1);
                             gain1.connect(ctx.destination);
-                            osc1.start(ctx.currentTime);
-                            osc1.stop(ctx.currentTime + 0.08);
+                            osc1.start(now);
+                            osc1.stop(now + 0.07);
 
                             const osc2 = ctx.createOscillator();
                             const gain2 = ctx.createGain();
                             osc2.type = 'sine';
-                            osc2.frequency.setValueAtTime(1800, ctx.currentTime + 0.09);
-                            gain2.gain.setValueAtTime(0.15, ctx.currentTime + 0.09);
+                            osc2.frequency.setValueAtTime(2100, now + 0.06);
+                            gain2.gain.setValueAtTime(0.2, now + 0.06);
+                            gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
                             osc2.connect(gain2);
                             gain2.connect(ctx.destination);
-                            osc2.start(ctx.currentTime + 0.09);
-                            osc2.stop(ctx.currentTime + 0.2);
+                            osc2.start(now + 0.06);
+                            osc2.stop(now + 0.13);
                         } else {
-                            // Error / Not Found Sound: Low double bass warning
+                            // Instant Low Warning Buzz (Not Found)
                             const osc = ctx.createOscillator();
                             const gain = ctx.createGain();
                             osc.type = 'sawtooth';
-                            osc.frequency.setValueAtTime(300, ctx.currentTime);
-                            gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                            osc.frequency.setValueAtTime(280, now);
+                            gain.gain.setValueAtTime(0.25, now);
+                            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
                             osc.connect(gain);
                             gain.connect(ctx.destination);
-                            osc.start(ctx.currentTime);
-                            osc.stop(ctx.currentTime + 0.25);
+                            osc.start(now);
+                            osc.stop(now + 0.2);
                         }
                     } catch (e) {
-                        console.warn('Audio play failed:', e);
+                        console.warn('Audio playback error:', e);
                     }
                 },
 
@@ -1116,7 +1135,7 @@
                     receiptText += "\x1B\x40"; // ESC @ (Initialize)
                     receiptText += "\x1B\x61\x01"; // Center align
                     receiptText += "TOKO WPA SHOP\n";
-                    receiptText += "Jl.jatisari senori\n";
+                    receiptText += "Jl.jatisari senori tuban\n";
                     receiptText += "0852-3480-3820\n";
                     receiptText += divider;
                     receiptText += "\x1B\x61\x00"; // Left align
@@ -1169,7 +1188,7 @@
                     receiptText += String.fromCharCode(29, 40, 107, pL, pH, 49, 80, 48) + qrUrl; // Store QR data
                     receiptText += "\x1D\x28\x6B\x03\x00\x31\x51\x30"; // Print QR code
 
-                    receiptText += "\n";
+                    receiptText += "\n\n\n";
                     receiptText += "\x1D\x56\x42\x00"; // GS V Paper cut
 
                     // Send to RawBT via rawbt:base64
