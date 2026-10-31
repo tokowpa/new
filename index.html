@@ -12,7 +12,7 @@
       body { 
         font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
         padding: 12px; 
-        background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%); 
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
         min-height: 100vh;
         margin: 0; 
         color: #0f172a; /* Teks utama dibuat gelap agar kontras tinggi */
@@ -604,6 +604,17 @@
               <option value="80">80mm (Besar)</option>
             </select>
           </div>
+          
+          <div class="form-group" style="margin-top: 15px;">
+            <label for="inputKodeAkses">Kode Akses (Muncul di atas QR)</label>
+            <input 
+              type="text" 
+              id="inputKodeAkses" 
+              placeholder="Contoh: KODE12345" 
+              style="width: 100%; padding: 10px; font-size: 15px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box;"
+              oninput="simpanKodeAkses()"
+            />
+          </div>
 
           <hr style="margin: 20px 0;" />
 
@@ -958,6 +969,27 @@
       // === PENGATURAN (SETTINGS) & SINKRON ===
       function bukaPengaturan() { document.getElementById('modalPengaturan').style.display = "block"; }
       function tutupPengaturan() { document.getElementById('modalPengaturan').style.display = "none"; }
+      
+      // Simpan kode akses ke penyimpanan lokal
+function simpanKodeAkses() {
+    const kode = document.getElementById('inputKodeAkses').value;
+    localStorage.setItem('kodeAksesNota', kode);
+}
+
+// Muat kode akses saat pengaturan dibuka / aplikasi dimuat
+function muatPengaturan() {
+    // 1. Muat ukuran kertas printer
+    const savedSize = localStorage.getItem('printerSize') || '58';
+    const selectSize = document.getElementById('ukuranKertas');
+    if (selectSize) selectSize.value = savedSize;
+
+    // 2. Muat kode akses
+    const savedKode = localStorage.getItem('kodeAksesNota') || '';
+    const inputKode = document.getElementById('inputKodeAkses');
+    if (inputKode) inputKode.value = savedKode;
+}
+
+// Panggil fungsi muatPengaturan() ini di dalam fungsi saat modal pengaturan dibuka atau saat window.onload
 
       function simpanPengaturanKertas() {
           const val = document.getElementById('ukuranKertas').value;
@@ -1237,6 +1269,16 @@
           add(`Total   : Rp ${transaksi.total}` + NL); add(`Bayar   : Rp ${transaksi.uang}` + NL); add(`Kembali : Rp ${transaksi.kembali}` + NL + NL);
 
           add([ESC, 0x61, 1]); add("Terima kasih telah berbelanja!" + NL + NL + NL);
+          
+          // === AMBIL DAN CETAK KODE AKSES TEPAT DI ATAS QR CODE ===
+        const kodeAkses = localStorage.getItem('kodeAksesNota') || '';
+        if (kodeAkses.trim() !== "") {
+            add([ESC, 0x45, 1]); // Tebalkan teks kode akses
+            add(`KODE AKSES: ${kodeAkses}` + NL);
+            add([ESC, 0x45, 0]); // Matikan tebal
+            add(NL);
+        }
+          
           const qrData = "https://wpashop.com";
         const qrDataLen = qrData.length + 3;
         const pL = qrDataLen % 256;
