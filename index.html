@@ -1003,11 +1003,13 @@
                 },
 
                 addToCart(product) {
-                    const existing = this.cart.find(i => i.id === product.id);
-                    if (existing) {
-                        existing.qty++;
+                    const existingIndex = this.cart.findIndex(i => i.id === product.id);
+                    if (existingIndex > -1) {
+                        const item = this.cart.splice(existingIndex, 1)[0];
+                        item.qty++;
+                        this.cart.unshift(item); // Pindahkan produk yang baru discan ke paling atas
                     } else {
-                        this.cart.push({
+                        this.cart.unshift({ // Masukkan produk baru ke indeks pertama (paling atas)
                             id: product.id,
                             name: product.name,
                             price: product.price,
@@ -1038,7 +1040,7 @@
                 loadTransactionToCart(trx) {
                     this.cart = JSON.parse(JSON.stringify(trx.items));
                     this.customerName = trx.customerName || '';
-                    this.amountPaid = 0;
+                    this.amountPaid = trx.paid || 0; // Muat nominal uang yang dibayar sebelumnya
                     this.showHistoryModal = false;
                     
                     this.toastMessage = `Order ${trx.invoiceNo} telah dimuat ke keranjang!`;
@@ -1098,46 +1100,55 @@
 
                 printRawBT(trx) {
                     const is80mm = this.paperWidth === '80mm';
-                    const divider = is80mm 
-                        ? "------------------------------------------------\n" 
-                        : "--------------------------------\n";
+                    const lineWidth = is80mm ? 48 : 32;
+                    const divider = "-".repeat(lineWidth) + "\n";
+
+                    // Helper fungsi untuk membuat teks rata kiri dan kanan sesuai lebar kertas (58mm vs 80mm)
+                    const formatLineBetween = (left, right) => {
+                        const spaceAvailable = lineWidth - left.length - right.length;
+                        if (spaceAvailable > 0) {
+                            return left + " ".repeat(spaceAvailable) + right + "\n";
+                        }
+                        return left + " " + right + "\n";
+                    };
 
                     let receiptText = "";
                     receiptText += "\x1B\x40"; // ESC @ (Initialize)
                     receiptText += "\x1B\x61\x01"; // Center align
-                    receiptText += "TOKO KASIR MODERN\n";
-                    receiptText += "Jl. Raya Kasir No. 88\n";
+                    receiptText += "TOKO WPA SHOP\n";
+                    receiptText += "Jl.jatisari senori\n";
+                    receiptText += "0852-3480-3820\n";
                     receiptText += divider;
                     receiptText += "\x1B\x61\x00"; // Left align
-                    receiptText += `Nota  : ${trx.invoiceNo}\n`;
-                    receiptText += `Tgl   : ${this.formatDate(trx.timestamp)}\n`;
+                    receiptText += formatLineBetween(`Nota  : ${trx.invoiceNo}`, `Tgl: ${this.formatDate(trx.timestamp)}`);
                     receiptText += `Plg   : ${trx.customerName}\n`;
                     receiptText += divider;
 
                     trx.items.forEach(item => {
                         receiptText += `${item.name}\n`;
-                        const lineTotal = (item.price * item.qty).toLocaleString('id-ID');
-                        receiptText += `  ${item.qty} ${item.unit} x ${item.price.toLocaleString('id-ID')} = ${lineTotal}\n`;
+                        const qtyStr = `  ${item.qty} ${item.unit} x ${item.price.toLocaleString('id-ID')}`;
+                        const lineTotal = `Rp ${ (item.price * item.qty).toLocaleString('id-ID') }`;
+                        receiptText += formatLineBetween(qtyStr, lineTotal);
                     });
 
                     receiptText += divider;
-                    receiptText += `TOTAL    : Rp ${trx.total.toLocaleString('id-ID')}\n`;
-                    receiptText += `BAYAR    : Rp ${trx.paid.toLocaleString('id-ID')}\n`;
+                    receiptText += formatLineBetween("TOTAL", `Rp ${trx.total.toLocaleString('id-ID')}`);
+                    receiptText += formatLineBetween("BAYAR", `Rp ${trx.paid.toLocaleString('id-ID')}`);
 
                     if (trx.type === 'debt') {
                         const debtAmount = trx.total - trx.paid;
-                        receiptText += `KURANG   : Rp ${debtAmount.toLocaleString('id-ID')}\n`;
-                        receiptText += "STATUS   : HUTANG / BELUM LUNAS\n";
+                        receiptText += formatLineBetween("KURANG", `Rp ${debtAmount.toLocaleString('id-ID')}`);
+                        receiptText += formatLineBetween("STATUS", "HUTANG / BELUM LUNAS");
                     } else {
-                        receiptText += `KEMBALI  : Rp ${trx.change.toLocaleString('id-ID')}\n`;
-                        receiptText += "STATUS   : LUNAS\n";
+                        receiptText += formatLineBetween("KEMBALI", `Rp ${trx.change.toLocaleString('id-ID')}`);
+                        receiptText += formatLineBetween("STATUS", "LUNAS");
                     }
 
                     receiptText += divider;
                     
                     // Access Code printing if available
                     if (this.accessCode && this.accessCode.trim() !== '') {
-                        receiptText += `KODE AKSES: ${this.accessCode.trim()}\n`;
+                        receiptText += formatLineBetween("KODE AKSES", this.accessCode.trim());
                         receiptText += divider;
                     }
 
@@ -1158,7 +1169,7 @@
                     receiptText += String.fromCharCode(29, 40, 107, pL, pH, 49, 80, 48) + qrUrl; // Store QR data
                     receiptText += "\x1D\x28\x6B\x03\x00\x31\x51\x30"; // Print QR code
 
-                    receiptText += "\n\n\n";
+                    receiptText += "\n";
                     receiptText += "\x1D\x56\x42\x00"; // GS V Paper cut
 
                     // Send to RawBT via rawbt:base64
